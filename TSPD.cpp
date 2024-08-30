@@ -1,313 +1,136 @@
 #include <iostream>
 #include <fstream>
-#include <stdio.h>
 #include <vector>
 #include <cmath>
-#include <time.h>	
+#include <limits>
+#include <chrono>
 
 using namespace std;
+using namespace std::chrono;
 
-#define infinito 0x7FFFFFFF
-#define _CRT_SECURE_NO_WARNINGS
+// Função para calcular a distância euclidiana entre dois pontos
+double calcularDistancia(pair<int, int> ponto1, pair<int, int> ponto2)
+{
+    int dx = ponto1.first - ponto2.first;
+    int dy = ponto1.second - ponto2.second;
+    return sqrt(dx * dx + dy * dy);
+}
 
-struct Cidade {
-	int x;
-	int y;
-};
+// Função para calcular a menor distância usando uma variação do algoritmo de TSP
+double tsp(const vector<vector<double>> &distancias, vector<bool> &visitado, int atual, int count, double custoAtual, double &menorCusto, vector<int> &caminhoAtual, vector<int> &melhorCaminho, int nos, int pontoFinal)
+{
+    if (count == nos - 1)
+    {
+        custoAtual += distancias[atual][pontoFinal];
+        caminhoAtual.push_back(pontoFinal);
+        if (custoAtual < menorCusto)
+        {
+            menorCusto = custoAtual;
+            melhorCaminho = caminhoAtual;
+        }
+        caminhoAtual.pop_back();
+        return menorCusto;
+    }
 
-struct Celula {
-	double val;
-	vector <int> caminhos;
-	Celula* prox;
-};
+    for (int i = 0; i < nos; ++i)
+    {
+        if (!visitado[i] && i != pontoFinal)
+        {
+            visitado[i] = true;
+            caminhoAtual.push_back(i);
+            tsp(distancias, visitado, i, count + 1, custoAtual + distancias[atual][i], menorCusto, caminhoAtual, melhorCaminho, nos, pontoFinal);
+            caminhoAtual.pop_back();
+            visitado[i] = false;
+        }
+    }
 
-class CidadesVisitas {
-private:
-	vector <Celula*> ini;
-	vector <Celula*> fim;
+    return menorCusto;
+}
 
-public:
-	CidadesVisitas(int numCidades) {
-		ini.resize(numCidades + 1);
-		fim.resize(numCidades + 1);
-		for (int x = 0; x < numCidades + 1; x++) {
-			ini[x] = NULL;
-			fim[x] = NULL;
-		}
-	}
+int main()
+{
+    FILE *arqEntrada;
+    FILE *arqSaida;
+    char nome[256];
 
-	void inserir(int vertice, double val, vector <int> caminho) {
-		Celula* nova = new Celula;
-		if (ini[vertice] == NULL) {
-			nova->val = val;
-			nova->caminhos.resize(caminho.size());
-			nova->caminhos = caminho;
-			nova->prox = NULL;
+    cout << "Informar nome do arquivo de entrada: ";
+    cin >> nome;
+    arqEntrada = fopen(nome, "r");
 
-			ini[vertice] = nova;
-			fim[vertice] = ini[vertice];
-		}
-		else {
-			nova->val = val;
-			nova->caminhos.resize(caminho.size());
-			nova->caminhos = caminho;
-			nova->prox = NULL;
+    if (arqEntrada == NULL)
+    {
+        cout << "Erro ao abrir arquivo de entrada." << endl;
+        return 1;
+    }
 
-			fim[vertice]->prox = nova;
-			fim[vertice] = nova;
+    arqSaida = fopen("caminho.txt", "w");
+    if (arqSaida == NULL)
+    {
+        cout << "Erro ao criar arquivo de saída." << endl;
+        return 1;
+    }
 
-			nova = NULL;
-		}
-	}
+    int quantidadeNos, quantidadeIniciais;
+    fscanf(arqEntrada, "%d\n", &quantidadeNos);
+    fscanf(arqEntrada, "%d\n", &quantidadeIniciais);
 
-	double getVal(int vertice, vector <int> caminho) {
-		double resposta = infinito;
-		Celula* temp = ini[vertice];
-		bool encontrado = true;
+    vector<pair<int, int>> coordenadas(quantidadeNos);
+    for (int i = 0; i < quantidadeNos; ++i)
+    {
+        fscanf(arqEntrada, "%d %d\n", &coordenadas[i].first, &coordenadas[i].second);
+    }
+    fclose(arqEntrada);
 
-		if (caminho.size() == 0) {
-			return (ini[vertice]->val);
-		}
-		else {
-			while (temp != NULL) {
-				for (int x = 0; x < caminho.size(); x++) {
-					if (caminho[x] != temp->caminhos[x]) {
-						encontrado = false;
-					}
-				}
+    int pontoFinal;
+    cout << "Informar o número do ponto que deve ser o último a ser visitado: ";
+    cin >> pontoFinal;
+    pontoFinal--; // Ajuste para índice 0
 
-				if (encontrado) {
-					resposta = temp->val;
-					break;
-				}
-				encontrado = true;
-				temp = temp->prox;
-			}
-			return (resposta);
-		}
-	}
-};
+    vector<vector<double>> distancias(quantidadeNos, vector<double>(quantidadeNos));
+    for (int i = 0; i < quantidadeNos; ++i)
+    {
+        for (int j = 0; j < quantidadeNos; ++j)
+        {
+            if (i != j)
+            {
+                distancias[i][j] = calcularDistancia(coordenadas[i], coordenadas[j]);
+            }
+            else
+            {
+                distancias[i][j] = numeric_limits<double>::infinity();
+            }
+        }
+    }
 
-class TSPD {
-private:
-	FILE* arqEntrada;
-	FILE* arqSaida;
-	int n;
-	int numPontosIniciais;
-	int controle;
-	Cidade* cidades;
-	vector <int> auxComb;
-	vector <int> vetor;
-	vector < vector <int> > combinacaoElementos;
-	vector < vector <double> > mAdjacentes;
-	vector <CidadesVisitas*>  custo;
+    for (int inicio = 0; inicio < quantidadeIniciais; ++inicio)
+    {
+        auto start = high_resolution_clock::now();
+        vector<bool> visitado(quantidadeNos, false);
+        vector<int> caminhoAtual;
+        vector<int> melhorCaminho;
+        visitado[inicio] = true;
+        caminhoAtual.push_back(inicio);
+        double menorCusto = numeric_limits<double>::infinity();
+        tsp(distancias, visitado, inicio, 1, 0, menorCusto, caminhoAtual, melhorCaminho, quantidadeNos, pontoFinal);
 
-public:
-	TSPD() {
-		char nome[256];
-		cout << "Informar nome arquivo entrada : ";
-		cin >> nome;
-		fopen_s(&arqEntrada, nome, "r");
-		fopen_s(&arqSaida, "caminho.txt", "w");
-		fscanf_s(arqEntrada, "%d\n", &n);
-		fscanf_s(arqEntrada, "%d\n", &numPontosIniciais);
-		vetor.resize(n - numPontosIniciais);
-		cout << "está aqui 1" << endl;
-		cidades = new Cidade[n + 1];
-		for (int x = 0; x < n; x++) {
-			fscanf_s(arqEntrada, "%d %d\n", &cidades[x].x, &cidades[x].y);
-		}
-		cout << "está aqui 2" << endl;
-		fclose(arqEntrada);
-		preencherMAdjacentes();
-		for (int x = numPontosIniciais; x < n; x++) {
-			vetor[x - numPontosIniciais] = x + 1;
-			cout << "está aqui 3" << endl;
-		}
-	}
+        auto end = high_resolution_clock::now();
+        auto duration = duration_cast<microseconds>(end - start);
 
-	void algoritmoTSPD() {
-		time_t inicio, fim;
-		inicio = clock();
-		double custoAux;
-		double custoCaminho;
-		custo.resize(n - numPontosIniciais);
-		vector <int> inicial;
+        // Exibindo e salvando os resultados
+        cout << "Menor distância começando do ponto " << inicio + 1 << ": " << menorCusto << endl;
+        cout << "Caminho percorrido: ";
+        fprintf(arqSaida, "Menor distância começando do ponto %d: %.2f\n", inicio + 1, menorCusto);
+        fprintf(arqSaida, "Caminho percorrido: ");
+        for (int i : melhorCaminho)
+        {
+            cout << i + 1 << " ";
+            fprintf(arqSaida, "%d ", i + 1);
+        }
+        cout << endl;
+        fprintf(arqSaida, "\nTempo de execução: %lld microssegundos\n", duration.count());
+        cout << "Tempo de execução: " << duration.count() << " microssegundos" << endl;
+    }
 
-		for (int x = 0; x < numPontosIniciais; x++) {
-			inicial.push_back(x + 1);
-			cout << "está aqui 4" << endl;
-		}
-
-		for (int x = 0; x < n - numPontosIniciais; x++) {
-			custo[x] = new CidadesVisitas(n);
-			cout << "está aqui 5" << endl;
-		}
-
-		for (int x = numPontosIniciais + 1; x <= n; x++) {
-			for (int i = 0; i < numPontosIniciais; i++) {
-				custo[0]->inserir(x, mAdjacentes[x][inicial[i]], extrair(inicial, inicial[i]));
-				cout << "está aqui 6" << endl;
-			}
-		}
-
-		for (int s = 1; s < (n - numPontosIniciais); s++) {
-			for (int x = numPontosIniciais + 1; x < n; x++) {
-				cout << "está aqui 7" << endl;
-				controle = 0;
-				int numComb = calcularNumCombinacoes(extrair(vetor, x).size(), s);
-				alocarCombinacoes(numComb, s);
-				auxComb.resize(s);
-				combinacoes(extrair(vetor, x), s, 0, auxComb);
-				for (int j = 0; j < numComb; j++) {
-					vector <int> vetAux = removerVetor(s, j);
-					custoCaminho = infinito;
-
-					for (int k = 0; k < s; k++) {
-						custoAux = mAdjacentes[x][vetAux[k]] + custo[s - 1]->getVal(vetAux[k], extrair(vetAux, vetAux[k]));
-
-						if (custoAux < custoCaminho) {
-							custoCaminho = custoAux;
-						}
-					}
-					custo[s]->inserir(x, custoCaminho, vetAux);
-				}
-			}
-		}
-
-		custoCaminho = infinito;
-		int cidadeBase = 0;
-
-		for (int x = numPontosIniciais + 1; x <= n; x++) {
-			for (int i = 0; i < numPontosIniciais; i++) {
-				custoAux = mAdjacentes[inicial[i]][x] + custo[n - numPontosIniciais - 1]->getVal(x, extrair(vetor, x));
-
-				if (custoAux < custoCaminho) {
-					custoCaminho = custoAux;
-					cidadeBase = x;
-				}
-			}
-		}
-
-		fprintf(arqSaida, "NUMERO CIDADES : %d\nCAMINHO\n%d ", n, cidadeBase);
-		recuperarCaminho(cidadeBase, vetor, (n - numPontosIniciais - 1));
-		fim = clock();
-		fprintf(arqSaida, "\nCUSTO : %0.2f", custoCaminho);
-		fprintf(arqSaida, "\nTEMPO : %0.2f", ((double(fim) - double(inicio)) / CLOCKS_PER_SEC));
-		fclose(arqSaida);
-	}
-
-	~TSPD() {}
-
-private:
-
-	void alocarCombinacoes(int linhas, int colunas) {
-		combinacaoElementos.resize(linhas);
-		for (int x = 0; x < linhas; x++) {
-			combinacaoElementos[x].resize(colunas);
-		}
-	}
-
-	double calcularDistancia(Cidade primeira, Cidade segunda) {
-		double distancia = sqrt(pow((primeira.x - segunda.x), 2) + pow((primeira.y - segunda.y), 2));
-		return (distancia);
-	}
-
-	void preencherMAdjacentes() {
-		mAdjacentes.resize(n);
-		for (int x = 0; x < n; x++) {
-			mAdjacentes[x].resize(n);
-			for (int y = 0; y < n; y++) {
-				if (x == y) {
-					mAdjacentes[x][y] = 0.0;
-				}
-				else {
-					mAdjacentes[x][y] = calcularDistancia(cidades[x], cidades[y]);
-				}
-			}
-		}
-		delete[] cidades;  // Corrigido para liberar memória alocada dinamicamente
-	}
-
-
-	vector <int> extrair(vector <int> vet, int elemento) {
-		vector <int> resposta;
-		resposta.resize(vet.size() - 1);
-		int pos = 0;
-		for (int x = 0; x < vet.size(); x++) {
-			if (vet[x] != elemento) {
-				resposta[pos++] = vet[x];
-			}
-		}
-		return (resposta);
-	}
-
-	int calcularNumCombinacoes(int numEle, int tamConj) {
-		int combinacaoDividendo = 1;
-		int combinacaDivisor = 1;
-		int aux = tamConj;
-		for (int x = 0; x < tamConj; x++) {
-			if (numEle != aux) {
-				combinacaoDividendo *= numEle--;
-			}
-			else {
-				combinacaoDividendo *= numEle;
-				numEle--;
-			}
-			combinacaDivisor *= aux--;
-		}
-		return (combinacaoDividendo / combinacaDivisor);
-	}
-
-	vector <int> removerVetor(int tam, int linha) {
-		vector <int> vetAux;
-		vetAux.resize(tam);
-		for (int x = 0; x < tam; x++) {
-			vetAux[x] = combinacaoElementos[linha][x];
-		}
-		return (vetAux);
-	}
-
-	void combinacoes(vector <int> vet, int tamConj, int indice, vector <int> auxComb) {
-		if (tamConj == 0) {
-			for (int x = 0; x < auxComb.size(); x++) {
-				combinacaoElementos[controle][x] = auxComb[x];
-			}
-			controle++;
-		}
-		else {
-			for (int x = indice; x <= vet.size() - tamConj; x++) {
-				auxComb[auxComb.size() - tamConj] = vet[x];
-				combinacoes(vet, tamConj - 1, x + 1, auxComb);
-			}
-		}
-	}
-
-	void recuperarCaminho(int cidadeBase, vector <int> vet, int tam) {
-		vector <int> vetAux;
-
-		if (tam >= 0) {
-			int numComb = calcularNumCombinacoes(vet.size(), tam);
-			for (int y = 0; y < numComb; y++) {
-				for (int x = 0; x < tam; x++) {
-					if (cidadeBase == combinacaoElementos[y][x]) {
-						for (int i = 0; i < tam; i++) {
-							vetAux.push_back(combinacaoElementos[y][i]);
-						}
-						vector <int> vetResp = removerVetor(tam, y);
-						recuperarCaminho(vetAux[0], vetResp, tam - 1);
-						fprintf(arqSaida, "%d ", vetAux[0]);
-						break;
-					}
-				}
-			}
-		}
-	}
-};
-
-int main() {
-	TSPD* tspd = new TSPD();
-	tspd->algoritmoTSPD();
-	delete tspd;
-	return 0;
+    fclose(arqSaida);
+    return 0;
 }
