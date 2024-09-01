@@ -87,6 +87,7 @@ int main()
     pontoFinal--; // Ajuste para índice 0
 
     vector<vector<double>> distancias(quantidadeNos, vector<double>(quantidadeNos));
+    // Dá para paralelizar para calcular as distâncias entre os pontos de forma independente
     for (int i = 0; i < quantidadeNos; ++i)
     {
         for (int j = 0; j < quantidadeNos; ++j)
@@ -102,6 +103,7 @@ int main()
         }
     }
 
+    // Pode ser paralelizada cada execução da função tsp para diferentes pontos iniciais é independente das outras.
     for (int inicio = 0; inicio < quantidadeIniciais; ++inicio)
     {
         auto start = high_resolution_clock::now();
@@ -127,7 +129,7 @@ int main()
             fprintf(arqSaida, "%d ", i + 1);
         }
         cout << endl;
-        fprintf(arqSaida, "\nTempo de execução: %lld microssegundos\n", duration.count());
+        fprintf(arqSaida, "\nTempo de execução: %lld microssegundos\n\n", duration.count());
         cout << "Tempo de execução: " << duration.count() << " microssegundos" << endl;
     }
 
