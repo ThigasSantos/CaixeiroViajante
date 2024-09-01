@@ -136,3 +136,5 @@ int main()
     fclose(arqSaida);
     return 0;
 }
+//g++ -Wall -Wextra -g3 e:\CodigosFaculdade\ARQII\TSPDTeste.cpp -o e:\CodigosFaculdade\ARQII\TSPDTeste.exe
+//.\'TSPDTeste.exe'  
