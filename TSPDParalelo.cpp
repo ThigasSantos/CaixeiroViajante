@@ -1,79 +1,75 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <cmath>
-#include <limits>
-#include <chrono>
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <limits.h>
+#include <time.h>
 
 #ifdef _OPENMP
 #include <omp.h>
-#else if
+#else
 #define omp_get_thread_num() 0
 #endif
 
-using namespace std;
-using namespace std::chrono;
 #define NUM_THREADS 8
 
 // Função para calcular a distância euclidiana entre dois pontos
-double calcularDistancia(pair<int, int> ponto1, pair<int, int> ponto2)
+double calcularDistancia(int ponto1[2], int ponto2[2])
 {
-    int dx = ponto1.first - ponto2.first;
-    int dy = ponto1.second - ponto2.second;
+    int dx = ponto1[0] - ponto2[0];
+    int dy = ponto1[1] - ponto2[1];
     return sqrt(dx * dx + dy * dy);
 }
 
 // Função para calcular a menor distância usando uma variação do algoritmo de TSP
-double tsp(const vector<vector<double>> &distancias, vector<bool> &visitado, int atual, int count, double custoAtual, double &menorCusto, vector<int> &caminhoAtual, vector<int> &melhorCaminho, int nos, int pontoFinal)
+double tsp(double **distancias, int *visitado, int atual, int count, double custoAtual, double *menorCusto, int *caminhoAtual, int *melhorCaminho, int nos, int pontoFinal)
 {
     if (count == nos - 1)
     {
         custoAtual += distancias[atual][pontoFinal];
-        caminhoAtual.push_back(pontoFinal);
-        if (custoAtual < menorCusto)
+        caminhoAtual[count] = pontoFinal;
+        if (custoAtual < *menorCusto)
         {
-            menorCusto = custoAtual;
-            melhorCaminho = caminhoAtual;
+            *menorCusto = custoAtual;
+            for (int i = 0; i <= count; ++i)
+                melhorCaminho[i] = caminhoAtual[i];
         }
-        caminhoAtual.pop_back();
-        return menorCusto;
+        return *menorCusto;
     }
 
     for (int i = 0; i < nos; ++i)
     {
         if (!visitado[i] && i != pontoFinal)
         {
-            visitado[i] = true;
-            caminhoAtual.push_back(i);
+            visitado[i] = 1;
+            caminhoAtual[count] = i;
             tsp(distancias, visitado, i, count + 1, custoAtual + distancias[atual][i], menorCusto, caminhoAtual, melhorCaminho, nos, pontoFinal);
-            caminhoAtual.pop_back();
-            visitado[i] = false;
+            visitado[i] = 0;
         }
     }
 
-    return menorCusto;
+    return *menorCusto;
 }
 
 int main()
 {
+    char nome[256];
     FILE *arqEntrada;
     FILE *arqSaida;
-    char nome[256];
 
-    cout << "Informar nome do arquivo de entrada: ";
-    cin >> nome;
+    printf("Informar nome do arquivo de entrada: ");
+    scanf("%s", nome);
     arqEntrada = fopen(nome, "r");
 
     if (arqEntrada == NULL)
     {
-        cout << "Erro ao abrir arquivo de entrada." << endl;
+        printf("Erro ao abrir arquivo de entrada.\n");
         return 1;
     }
 
     arqSaida = fopen("caminhoParalelo.txt", "w");
     if (arqSaida == NULL)
     {
-        cout << "Erro ao criar arquivo de saída." << endl;
+        printf("Erro ao criar arquivo de saída.\n");
         return 1;
     }
 
@@ -81,25 +77,28 @@ int main()
     fscanf(arqEntrada, "%d\n", &quantidadeNos);
     fscanf(arqEntrada, "%d\n", &quantidadeIniciais);
 
-    vector<pair<int, int>> coordenadas(quantidadeNos);
+    int **coordenadas = (int **)malloc(quantidadeNos * sizeof(int *));
     for (int i = 0; i < quantidadeNos; ++i)
     {
-        fscanf(arqEntrada, "%d %d\n", &coordenadas[i].first, &coordenadas[i].second);
+        coordenadas[i] = (int *)malloc(2 * sizeof(int));
+        fscanf(arqEntrada, "%d %d\n", &coordenadas[i][0], &coordenadas[i][1]);
     }
     fclose(arqEntrada);
 
     int pontoFinal;
-    cout << "Informar o número do ponto que deve ser o último a ser visitado: ";
-    cin >> pontoFinal;
+    printf("Informar o número do ponto que deve ser o último a ser visitado: ");
+    scanf("%d", &pontoFinal);
     pontoFinal--; // Ajuste para índice 0
 
-    vector<vector<double>> distancias(quantidadeNos, vector<double>(quantidadeNos));
+    double **distancias = (double **)malloc(quantidadeNos * sizeof(double *));
+    for (int i = 0; i < quantidadeNos; ++i)
+        distancias[i] = (double *)malloc(quantidadeNos * sizeof(double));
 
-// Dá para paralelizar para calcular as distâncias entre os pontos de forma independente
-#pragma omp parallel for schedule(dynamic) num_threads(NUM_THREADS) shared(coordenadas, distancias, quantidadeNos) private(i, j, tid) default(none)
+    // Calcula as distâncias entre os pontos
+    int tid;
+#pragma omp parallel for schedule(dynamic) num_threads(NUM_THREADS) shared(distancias, coordenadas, quantidadeNos) private(tid) default(none)
     for (int i = 0; i < quantidadeNos; ++i)
     {
-        int tid = omp_get_thread_num();
         for (int j = 0; j < quantidadeNos; ++j)
         {
             if (i != j)
@@ -107,47 +106,65 @@ int main()
                 distancias[i][j] = calcularDistancia(coordenadas[i], coordenadas[j]);
 #pragma omp critical
                 {
-                    cout << "Thread " << tid << " calculou a distância entre os pontos " << i + 1 << " e " << j + 1 << endl;
+                    tid = omp_get_thread_num();
+                    printf("Thread: %d calculou a distância entre os pontos %d e %d\n", tid, i + 1, j + 1);
                 }
             }
             else
             {
-                distancias[i][j] = numeric_limits<double>::infinity();
+                distancias[i][j] = INFINITY;
             }
         }
-    } /*-- End of paraallel region --*/
+    }
 
-    // Pode ser paralelizada cada execução da função tsp para diferentes pontos iniciais é independente das outras.
-#pragma omp parallel for schedule(dynamic) num_threads(NUM_THREADS) shared(distancias, quantidadeIniciais, quantidadeNos, pontoFinal, arqSaida) private(inicio, tid, visitado, caminhoAtual, melhorCaminho, menorCusto) default(none)
+    // Paralelização das execuções da função tsp
+#pragma omp parallel for schedule(dynamic) num_threads(NUM_THREADS) shared(distancias, quantidadeNos, pontoFinal, quantidadeIniciais, arqSaida) private(tid) default(none)
     for (int inicio = 0; inicio < quantidadeIniciais; ++inicio)
     {
-        int tid = omp_get_thread_num();
-        cout << "Thread " << tid << " iniciando TSP para ponto inicial " << inicio + 1 << endl;
+        tid = omp_get_thread_num();
+        printf("Thread: %d iniciando TSP para ponto inicial %d\n", tid, inicio + 1);
 
-        auto start = high_resolution_clock::now();
-        vector<bool> visitado(quantidadeNos, false);
-        vector<int> caminhoAtual;
-        vector<int> melhorCaminho;
-        visitado[inicio] = true;
-        caminhoAtual.push_back(inicio);
-        double menorCusto = numeric_limits<double>::infinity();
-        tsp(distancias, visitado, inicio, 1, 0, menorCusto, caminhoAtual, melhorCaminho, quantidadeNos, pontoFinal);
+        int *visitado = (int *)malloc(quantidadeNos * sizeof(int));
+        int *caminhoAtual = (int *)malloc(quantidadeNos * sizeof(int));
+        int *melhorCaminho = (int *)malloc(quantidadeNos * sizeof(int));
+        double menorCusto = INFINITY;
 
-        auto end = high_resolution_clock::now();
-        auto duration = duration_cast<microseconds>(end - start);
+        clock_t start = clock();
+
+        for (int i = 0; i < quantidadeNos; i++)
+            visitado[i] = 0;
+
+        visitado[inicio] = 1;
+        caminhoAtual[0] = inicio;
+        tsp(distancias, visitado, inicio, 1, 0, &menorCusto, caminhoAtual, melhorCaminho, quantidadeNos, pontoFinal);
+
+        clock_t end = clock();
+        double duration = ((double)(end - start)) * 1000000 / CLOCKS_PER_SEC;
 
 #pragma omp critical
         {
-            cout << "Thread " << tid << " finalizou TSP para ponto inicial " << inicio + 1 << " com menor custo " << menorCusto << endl;
+            printf("Thread %d finalizou TSP para ponto inicial %d com menor custo %.2f\n", tid, inicio + 1, menorCusto);
             fprintf(arqSaida, "Menor distância começando do ponto %d: %.2f\n", inicio + 1, menorCusto);
             fprintf(arqSaida, "Caminho percorrido: ");
-            for (int i : melhorCaminho)
-            {
-                fprintf(arqSaida, "%d ", i + 1);
-            }
-            fprintf(arqSaida, "\nTempo de execução: %lld microssegundos\n\n", duration.count());
+            for (int i = 0; i < quantidadeNos; ++i)
+                fprintf(arqSaida, "%d ", melhorCaminho[i] + 1);
+            fprintf(arqSaida, "\nTempo de execução: %.0f microssegundos\n\n", duration);
         }
-    } /*-- End of paraallel region --*/
+
+        // Libera a memória alocada para cada thread
+        free(visitado);
+        free(caminhoAtual);
+        free(melhorCaminho);
+    }
+
+    // Libera a memória alocada para as distâncias e coordenadas
+    for (int i = 0; i < quantidadeNos; ++i)
+    {
+        free(coordenadas[i]);
+        free(distancias[i]);
+    }
+    free(coordenadas);
+    free(distancias);
 
     fclose(arqSaida);
     return 0;
