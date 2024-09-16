@@ -3,6 +3,11 @@
 #include <math.h>
 #include <limits.h>
 #include <time.h>
+#include <chrono>
+
+
+using namespace std;
+using namespace std::chrono;
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -52,6 +57,7 @@ double tsp(double **distancias, int *visitado, int atual, int count, double cust
 
 int main()
 {
+    auto start_completo = high_resolution_clock::now();
     char nome[256];
     FILE *arqEntrada;
     FILE *arqSaida;
@@ -129,7 +135,7 @@ int main()
         int *melhorCaminho = (int *)malloc(quantidadeNos * sizeof(int));
         double menorCusto = INFINITY;
 
-        clock_t start = clock();
+        auto start = high_resolution_clock::now();
 
         for (int i = 0; i < quantidadeNos; i++)
             visitado[i] = 0;
@@ -138,8 +144,8 @@ int main()
         caminhoAtual[0] = inicio;
         tsp(distancias, visitado, inicio, 1, 0, &menorCusto, caminhoAtual, melhorCaminho, quantidadeNos, pontoFinal);
 
-        clock_t end = clock();
-        double duration = ((double)(end - start)) * 1000000 / CLOCKS_PER_SEC;
+        auto end = high_resolution_clock::now();
+        auto duration = duration_cast<microseconds>(end - start);
 
 #pragma omp critical
         {
@@ -148,7 +154,7 @@ int main()
             fprintf(arqSaida, "Caminho percorrido: ");
             for (int i = 0; i < quantidadeNos; ++i)
                 fprintf(arqSaida, "%d ", melhorCaminho[i] + 1);
-            fprintf(arqSaida, "\nTempo de execução: %.0f microssegundos\n\n", duration);
+            fprintf(arqSaida, "\nTempo de execução: %lld microssegundos\n\n", duration.count());
         }
 
         // Libera a memória alocada para cada thread
@@ -165,6 +171,10 @@ int main()
     }
     free(coordenadas);
     free(distancias);
+
+    auto end_completo = high_resolution_clock::now();
+    auto duration_completo = duration_cast<microseconds>(end_completo - start_completo);
+    fprintf(arqSaida, "Tempo total de execução: %lld microssegundos\n", duration_completo.count());
 
     fclose(arqSaida);
     return 0;

@@ -49,6 +49,7 @@ double tsp(const vector<vector<double>> &distancias, vector<bool> &visitado, int
 
 int main()
 {
+    auto start_completo = high_resolution_clock::now();
     FILE *arqEntrada;
     FILE *arqSaida;
     char nome[256];
@@ -113,6 +114,7 @@ int main()
         visitado[inicio] = true;
         caminhoAtual.push_back(inicio);
         double menorCusto = numeric_limits<double>::infinity();
+        cout << "Calculando menor distância começando do ponto " << inicio + 1 << endl;
         tsp(distancias, visitado, inicio, 1, 0, menorCusto, caminhoAtual, melhorCaminho, quantidadeNos, pontoFinal);
 
         auto end = high_resolution_clock::now();
@@ -132,6 +134,10 @@ int main()
         fprintf(arqSaida, "\nTempo de execução: %lld microssegundos\n\n", duration.count());
         cout << "Tempo de execução: " << duration.count() << " microssegundos" << endl;
     }
+
+    auto end_completo = high_resolution_clock::now();
+    auto duration_completo = duration_cast<microseconds>(end_completo - start_completo);
+    fprintf(arqSaida, "Tempo total de execução: %lld microssegundos\n", duration_completo.count());
 
     fclose(arqSaida);
     return 0;
