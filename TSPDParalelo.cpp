@@ -15,7 +15,7 @@ using namespace std::chrono;
 #define omp_get_thread_num() 0
 #endif
 
-#define NUM_THREADS 15
+#define NUM_THREADS 25
 
 // Função para calcular a distância euclidiana entre dois pontos
 double calcularDistancia(int ponto1[2], int ponto2[2])

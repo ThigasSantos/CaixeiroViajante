@@ -1,0 +1,21 @@
+Menor distância começando do ponto 1: 3324.72
+Caminho percorrido: 1 8 16 7 6 5 15 2 10 4 3 9 11 13 14 12 
+Tempo de execução: 6439596996 microssegundos
+
+Menor distância começando do ponto 2: 3488.83
+Caminho percorrido: 2 10 4 3 9 11 13 14 6 5 15 1 8 16 7 12 
+Tempo de execução: 6554911526 microssegundos
+
+Menor distância começando do ponto 3: 3608.89
+Caminho percorrido: 3 9 4 10 2 11 13 14 6 5 15 1 8 16 7 12 
+Tempo de execução: 6565362819 microssegundos
+
+Menor distância começando do ponto 5: 3562.67
+Caminho percorrido: 5 6 7 16 8 1 15 2 10 4 3 9 11 13 14 12 
+Tempo de execução: 6573782407 microssegundos
+
+Menor distância começando do ponto 4: 3585.01
+Caminho percorrido: 4 10 3 9 2 11 13 14 6 5 15 1 8 16 7 12 
+Tempo de execução: 6574193942 microssegundos
+
+Tempo total de execução: 6581379845 microssegundos
